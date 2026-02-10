@@ -33,6 +33,9 @@
     "LICENSE"
   ],
   "license": "MIT",
+  "bin": {
+    "skillpack": "./dist/src/cli.js"
+  },
   "module": "./dist/src/cli.js",
   "exports": {
     ".": {
