@@ -2,8 +2,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { traceReferences } from "./trace.js";
-import { pack } from "./pack.js";
+import { traceReferences } from "./lib/trace.js";
+import { pack } from "./lib/pack.js";
 
 function usage() {
   console.log(`

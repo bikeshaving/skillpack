@@ -7,8 +7,6 @@
     "url": "https://github.com/bikeshaving/skillpack.git"
   },
   "type": "module",
-  "module": "./dist/src/index.js",
-  "types": "dist/index.d.ts",
   "scripts": {
     "build": "libuild",
     "prepublishOnly": "echo 'ERROR: Cannot publish from root directory. Use libuild publish instead.' && exit 1"
@@ -35,33 +33,16 @@
     "LICENSE"
   ],
   "license": "MIT",
+  "module": "./dist/src/cli.js",
   "exports": {
     ".": {
-      "import": "./dist/src/index.js"
+      "import": "./dist/src/cli.js"
     },
     "./cli": {
       "import": "./dist/src/cli.js"
     },
     "./cli.js": {
       "import": "./dist/src/cli.js"
-    },
-    "./index": {
-      "import": "./dist/src/index.js"
-    },
-    "./index.js": {
-      "import": "./dist/src/index.js"
-    },
-    "./pack": {
-      "import": "./dist/src/pack.js"
-    },
-    "./pack.js": {
-      "import": "./dist/src/pack.js"
-    },
-    "./trace": {
-      "import": "./dist/src/trace.js"
-    },
-    "./trace.js": {
-      "import": "./dist/src/trace.js"
     },
     "./package.json": "./dist/package.json"
   }

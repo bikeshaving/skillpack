@@ -64,22 +64,6 @@ skillpack ./SKILL.md --list
 skillpack ./SKILL.md -v
 ```
 
-## Programmatic API
-
-```typescript
-import { traceReferences, pack } from "@b9g/skillpack";
-
-const result = traceReferences("./SKILL.md", true);
-console.log("Files:", result.files);
-console.log("Errors:", result.errors);
-
-await pack({
-  files: result.files,
-  skillPath: "./SKILL.md",
-  outputPath: "output.skill",
-});
-```
-
 ## License
 
 MIT
