@@ -1,20 +1,17 @@
 {
   "name": "@b9g/skillpack",
   "version": "0.1.0",
-  "description": "Pack Claude skills from markdown files that reference your existing codebase",
+  "description": "Build Agent Skills from your existing docs",
   "repository": {
     "type": "git",
     "url": "https://github.com/bikeshaving/skillpack.git"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "module": "./dist/src/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "skillpack": "dist/cli.js"
-  },
   "scripts": {
-    "build": "rm -rf dist && tsc",
-    "dev": "tsc --watch"
+    "build": "libuild",
+    "prepublishOnly": "echo 'ERROR: Cannot publish from root directory. Use libuild publish instead.' && exit 1"
   },
   "keywords": [
     "agent-skills",
@@ -28,12 +25,44 @@
     "marked": "^15.0.4"
   },
   "devDependencies": {
+    "@b9g/libuild": "^0.1.23",
     "@types/archiver": "^6.0.3",
-    "@types/node": "^22.10.5",
-    "typescript": "^5.7.3"
+    "@types/node": "^22.10.5"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js"
+    },
+    "./cli": {
+      "import": "./dist/src/cli.js"
+    },
+    "./cli.js": {
+      "import": "./dist/src/cli.js"
+    },
+    "./index": {
+      "import": "./dist/src/index.js"
+    },
+    "./index.js": {
+      "import": "./dist/src/index.js"
+    },
+    "./pack": {
+      "import": "./dist/src/pack.js"
+    },
+    "./pack.js": {
+      "import": "./dist/src/pack.js"
+    },
+    "./trace": {
+      "import": "./dist/src/trace.js"
+    },
+    "./trace.js": {
+      "import": "./dist/src/trace.js"
+    },
+    "./package.json": "./dist/package.json"
+  }
 }

@@ -1,141 +1,73 @@
 # skillpack
 
-Pack Claude skills from markdown files that reference your existing codebase.
+**Build [Agent Skills](https://agentskills.io) from your existing docs.**
 
-## The Problem
-
-The [Agent Skills spec](https://agentskills.io) assumes skills are self-contained directories. You copy docs into `references/`, scripts into `scripts/`, and ship the folder.
-
-But for framework authors, that's backwards. The docs already exist. The examples already exist. You don't want to maintain a duplicate copy that drifts.
-
-## The Solution
-
-`skillpack` lets you write a `SKILL.md` that *points into* your existing repo structure. It traces markdown references recursively and packages only what's needed.
-
-```
-my-framework/
-├── SKILL.md              # References docs and examples
-├── docs/
-│   ├── getting-started.md
-│   ├── api.md            # References src/types.ts
-│   └── advanced.md
-├── src/
-│   └── types.ts
-└── examples/
-    └── todo-app/
-        └── index.tsx
-```
-
-Run `skillpack` and get a `.skill` file containing just the referenced files, with paths preserved.
-
-## Installation
+The Agent Skills spec wants self-contained directories. But your docs, examples, and source already exist in your repo. Skillpack traces markdown references recursively and packages only what's needed into a `.skill` archive.
 
 ```bash
-npm install -g skillpack
+npx @b9g/skillpack ./SKILL.md
 ```
 
-Or use directly:
+## How It Works
+
+Write a `SKILL.md` that points into your repo:
+
+```yaml
+---
+name: my-framework
+description: My framework for building things.
+references:
+  - docs/
+  - examples/todo-app/
+---
+
+# My Framework
+
+See [Getting Started](./docs/getting-started.md) for installation.
+See [API Reference](./docs/api.md) for details.
+```
+
+Skillpack traces three kinds of references:
+
+1. **Markdown links** — `[API docs](./docs/api.md)`
+2. **Code block annotations** — `` ```ts file=src/types.ts ``\`
+3. **Frontmatter references** — `references: [docs/, examples/]`
+
+Tracing is recursive. If `api.md` links to `advanced.md`, and `advanced.md` annotates `types.ts`, all three are included. Directory references include everything inside them.
 
 ```bash
-npx skillpack ./SKILL.md
+$ skillpack ./SKILL.md --list
+Files to include (6):
+  SKILL.md
+  docs/getting-started.md
+  docs/api.md
+  docs/advanced.md
+  src/types.ts
+  examples/todo-app/index.tsx
 ```
+
+The output is a `.skill` zip archive with paths preserved relative to the `SKILL.md` location.
 
 ## Usage
 
 ```bash
-# Pack a skill (outputs <dirname>.skill)
+# Pack a skill
 skillpack ./SKILL.md
 
 # Custom output path
 skillpack ./SKILL.md -o dist/my-framework.skill
 
-# List files that would be included (dry run)
+# Dry run
 skillpack ./SKILL.md --list
 
-# Verbose output
+# Verbose
 skillpack ./SKILL.md -v
-```
-
-## How References Work
-
-`skillpack` traces three types of references in markdown:
-
-### 1. Markdown links
-
-```markdown
-See [the API docs](./docs/api.md) for details.
-```
-
-### 2. Code block file annotations
-
-~~~markdown
-```typescript file=src/types.ts
-```
-~~~
-
-### 3. Frontmatter references
-
-```yaml
----
-references:
-  - docs/getting-started.md
-  - examples/todo-app/
----
-```
-
-References are traced recursively. If `api.md` links to `advanced.md`, and `advanced.md` has a `file=` annotation pointing to `types.ts`, all three are included.
-
-Directory references include everything inside them.
-
-## Output Format
-
-The output is a `.skill` file (a zip archive) compatible with the Agent Skills spec:
-
-```
-my-framework.skill
-├── SKILL.md
-├── docs/
-│   ├── getting-started.md
-│   ├── api.md
-│   └── advanced.md
-├── src/
-│   └── types.ts
-└── examples/
-    └── todo-app/
-        └── index.tsx
-```
-
-Paths are preserved relative to the SKILL.md location.
-
-## Example: Packaging Crank.js
-
-```bash
-# In the crank repo root
-cat > SKILL.md << 'EOF'
----
-name: crankjs
-description: Crank.js - The Just JavaScript Framework
-references:
-  - docs/
-  - src/crank.ts
-  - examples/todo-mvc/
----
-
-# Crank.js
-
-Crank is a JavaScript framework for building reactive components using
-generators and promises.
-
-See [Getting Started](./docs/getting-started.md) for installation.
-EOF
-
-skillpack ./SKILL.md -o crank.skill
 ```
 
 ## Programmatic API
 
 ```typescript
-import { traceReferences, pack } from "skillpack";
+import { traceReferences, pack } from "@b9g/skillpack";
 
 const result = traceReferences("./SKILL.md", true);
 console.log("Files:", result.files);
