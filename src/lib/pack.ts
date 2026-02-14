@@ -1,12 +1,15 @@
 import archiver from "archiver";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Category } from "./trace.js";
+import { rewriteSkillContent } from "./rewrite.js";
 
 export interface PackOptions {
   files: Set<string>;
   skillPath: string;
   outputPath: string;
   verbose?: boolean;
+  categories?: Map<string, Category>;
 }
 
 const STANDARD_FIELDS = new Set([
@@ -19,35 +22,30 @@ const STANDARD_FIELDS = new Set([
 ]);
 
 /**
- * Strip non-standard frontmatter keys from SKILL.md content.
- * Claude.ai only accepts: name, description, license, allowed-tools, compatibility, metadata.
+ * Validate that SKILL.md frontmatter contains only standard fields.
+ * Throws if non-standard keys are found.
  */
-function sanitizeFrontmatter(content: string): string {
+function validateFrontmatter(content: string): void {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return content;
+  if (!match) return;
 
   const yaml = match[1];
   const lines = yaml.split("\n");
-  const kept: string[] = [];
-  let skipping = false;
+  const invalid: string[] = [];
 
   for (const line of lines) {
-    // Top-level key: no leading whitespace, has a colon
     const keyMatch = line.match(/^([a-z][\w-]*):/);
-    if (keyMatch) {
-      if (STANDARD_FIELDS.has(keyMatch[1])) {
-        skipping = false;
-        kept.push(line);
-      } else {
-        skipping = true;
-      }
-    } else if (!skipping) {
-      // Continuation line (indented) of a kept key
-      kept.push(line);
+    if (keyMatch && !STANDARD_FIELDS.has(keyMatch[1])) {
+      invalid.push(keyMatch[1]);
     }
   }
 
-  return `---\n${kept.join("\n")}\n---${content.slice(match[0].length)}`;
+  if (invalid.length > 0) {
+    throw new Error(
+      `SKILL.md contains non-standard frontmatter fields: ${invalid.join(", ")}\n` +
+        `Valid fields: ${[...STANDARD_FIELDS].join(", ")}`
+    );
+  }
 }
 
 /**
@@ -78,10 +76,10 @@ export async function pack(options: PackOptions): Promise<void> {
         console.log(`  packing: ${relativePath}`);
       }
 
-      // Sanitize SKILL.md frontmatter to remove non-standard fields
       if (path.resolve(file) === absoluteSkillPath) {
         const content = fs.readFileSync(file, "utf-8");
-        archive.append(sanitizeFrontmatter(content), { name: relativePath });
+        validateFrontmatter(content);
+        archive.append(content, { name: relativePath });
       } else {
         archive.file(file, { name: relativePath });
       }
@@ -89,4 +87,127 @@ export async function pack(options: PackOptions): Promise<void> {
 
     archive.finalize();
   });
+}
+
+/**
+ * Pack files into a directory, preserving relative paths
+ */
+export async function packPreserve(options: PackOptions): Promise<void> {
+  const { files, skillPath, outputPath, verbose } = options;
+
+  const rootDir = path.dirname(path.resolve(skillPath));
+  const absoluteSkillPath = path.resolve(skillPath);
+
+  fs.mkdirSync(outputPath, { recursive: true });
+
+  let count = 0;
+  for (const file of files) {
+    const relativePath = path.relative(rootDir, file);
+    const destPath = path.join(outputPath, relativePath);
+
+    if (verbose) {
+      console.log(`  copying: ${relativePath}`);
+    }
+
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+
+    if (path.resolve(file) === absoluteSkillPath) {
+      const content = fs.readFileSync(file, "utf-8");
+      validateFrontmatter(content);
+      fs.writeFileSync(destPath, content);
+    } else {
+      fs.copyFileSync(file, destPath);
+    }
+    count++;
+  }
+
+  if (verbose) {
+    console.log(`\nCopied ${count} files to ${outputPath}`);
+  }
+}
+
+/**
+ * Pack files into a flat directory with scripts/references/assets subdirs
+ */
+export async function packFlat(options: PackOptions): Promise<void> {
+  const { files, skillPath, outputPath, verbose, categories } = options;
+
+  if (!categories) {
+    throw new Error("categories required for flat format");
+  }
+
+  const rootDir = path.dirname(path.resolve(skillPath));
+  const absoluteSkillPath = path.resolve(skillPath);
+
+  // Build path map: original relative path → flat path (e.g., "docs/api.md" → "references/api.md")
+  const pathMap = new Map<string, string>();
+  const destinations = new Map<string, string[]>(); // dest → [source paths] for collision detection
+
+  for (const file of files) {
+    if (file === absoluteSkillPath) continue;
+
+    const relPath = path.relative(rootDir, file);
+    const category = categories.get(file);
+    if (!category) continue;
+
+    const basename = path.basename(file);
+    const dest = `${category}/${basename}`;
+
+    const existing = destinations.get(dest);
+    if (existing) {
+      existing.push(relPath);
+    } else {
+      destinations.set(dest, [relPath]);
+    }
+
+    pathMap.set(relPath, dest);
+  }
+
+  // Check for collisions
+  const collisions: string[] = [];
+  for (const [dest, sources] of destinations) {
+    if (sources.length > 1) {
+      collisions.push(`  ${dest} ← ${sources.join(", ")}`);
+    }
+  }
+  if (collisions.length > 0) {
+    throw new Error(
+      `Flat format collision — multiple files map to the same destination:\n${collisions.join("\n")}`
+    );
+  }
+
+  // Create output directory
+  fs.mkdirSync(outputPath, { recursive: true });
+
+  // Write SKILL.md with rewritten paths
+  const skillContent = fs.readFileSync(absoluteSkillPath, "utf-8");
+  validateFrontmatter(skillContent);
+  const rewritten = rewriteSkillContent(skillContent, pathMap);
+  fs.writeFileSync(path.join(outputPath, "SKILL.md"), rewritten);
+  if (verbose) {
+    console.log("  copying: SKILL.md");
+  }
+
+  // Copy files to flat layout
+  let count = 1; // count SKILL.md
+  for (const file of files) {
+    if (file === absoluteSkillPath) continue;
+
+    const relPath = path.relative(rootDir, file);
+    const dest = pathMap.get(relPath);
+    if (!dest) continue;
+
+    const destPath = path.join(outputPath, dest);
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.copyFileSync(file, destPath);
+    count++;
+
+    if (verbose) {
+      console.log(`  copying: ${relPath} → ${dest}`);
+    }
+  }
+
+  if (verbose) {
+    console.log(`\nCopied ${count} files to ${outputPath}`);
+  }
 }

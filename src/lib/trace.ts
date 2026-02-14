@@ -1,37 +1,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { Lexer, type Token, type Tokens } from "marked";
+
+export type Category = "scripts" | "references" | "assets";
 
 export interface TraceResult {
   files: Set<string>;
   errors: string[];
+  categories: Map<string, Category>;
 }
 
 /**
  * Extract file references from markdown content.
- * Handles: markdown links, code block file= annotations, and frontmatter references.
+ * Handles: markdown links and code block file= annotations.
  */
 function extractReferences(content: string, basePath: string): string[] {
   const refs: string[] = [];
   const lexer = new Lexer();
   const tokens = lexer.lex(content);
-
-  // Parse frontmatter for references array
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-  if (frontmatterMatch) {
-    const yaml = frontmatterMatch[1];
-    // Simple YAML parsing for references array
-    const refsMatch = yaml.match(/references:\s*\n((?:\s+-\s+.+\n?)*)/);
-    if (refsMatch) {
-      const lines = refsMatch[1].split("\n");
-      for (const line of lines) {
-        const match = line.match(/^\s+-\s+(.+)/);
-        if (match) {
-          refs.push(match[1].trim());
-        }
-      }
-    }
-  }
 
   // Walk tokens for links and code blocks
   function walkTokens(tokens: Token[]) {
@@ -146,5 +133,45 @@ export function traceReferences(
   // Start from the skill file itself
   trace(absoluteSkillPath);
 
-  return { files, errors };
+  // Categorize all files except SKILL.md
+  const categories = categorizeFiles(files, absoluteSkillPath);
+
+  return { files, errors, categories };
+}
+
+/**
+ * Categorize traced files into scripts/references/assets.
+ * Priority: executable → scripts, binary → assets, text → references.
+ */
+function categorizeFiles(
+  files: Set<string>,
+  skillPath: string
+): Map<string, Category> {
+  const categories = new Map<string, Category>();
+  const toCheck = [...files].filter((f) => f !== skillPath);
+
+  if (toCheck.length === 0) return categories;
+
+  // Batch binary detection
+  const mimeOutput = execFileSync(
+    "file",
+    ["--mime-encoding", "-b", ...toCheck],
+    { encoding: "utf-8" }
+  );
+  const mimeLines = mimeOutput.trimEnd().split("\n");
+
+  for (let i = 0; i < toCheck.length; i++) {
+    const file = toCheck[i];
+    const stat = fs.statSync(file);
+
+    if (stat.mode & 0o111) {
+      categories.set(file, "scripts");
+    } else if (mimeLines[i] === "binary") {
+      categories.set(file, "assets");
+    } else {
+      categories.set(file, "references");
+    }
+  }
+
+  return categories;
 }

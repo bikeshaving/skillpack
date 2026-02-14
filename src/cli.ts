@@ -3,7 +3,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { traceReferences } from "./lib/trace.js";
-import { pack } from "./lib/pack.js";
+import { pack, packFlat, packPreserve } from "./lib/pack.js";
 
 function usage() {
   console.log(`
@@ -14,13 +14,20 @@ Usage:
 
 Options:
   -o, --output <path>   Output path (default: <name>.skill)
+  -f, --format <type>   Output format: skill (zip, default), flat, or preserve
   -l, --list            List files that would be included (dry run)
   -v, --verbose         Verbose output
   -h, --help            Show this help
 
+Formats:
+  skill      .skill zip archive (default)
+  flat       Flat layout with scripts/ references/ assets/ subdirs
+  preserve   Directory with original paths preserved
+
 Examples:
   skillpack ./SKILL.md
   skillpack ./SKILL.md -o dist/my-framework.skill
+  skillpack ./SKILL.md --format flat -o dist/my-skill/
   skillpack ./SKILL.md --list
 `);
 }
@@ -35,6 +42,7 @@ async function main() {
 
   let skillPath: string | undefined;
   let outputPath: string | undefined;
+  let format: "skill" | "flat" | "preserve" = "skill";
   let listOnly = false;
   let verbose = false;
 
@@ -42,6 +50,15 @@ async function main() {
     const arg = args[i];
     if (arg === "-o" || arg === "--output") {
       outputPath = args[++i];
+    } else if (arg === "-f" || arg === "--format") {
+      const val = args[++i];
+      if (val !== "skill" && val !== "flat" && val !== "preserve") {
+        console.error(
+          `Error: Invalid format "${val}". Use "skill", "flat", or "preserve".`
+        );
+        process.exit(1);
+      }
+      format = val;
     } else if (arg === "-l" || arg === "--list") {
       listOnly = true;
     } else if (arg === "-v" || arg === "--verbose") {
@@ -66,7 +83,11 @@ async function main() {
   if (!outputPath) {
     const dir = path.dirname(path.resolve(skillPath));
     const name = path.basename(dir) || "skill";
-    outputPath = `${name}.skill`;
+    if (format === "skill") {
+      outputPath = `${name}.skill`;
+    } else {
+      outputPath = `${name}/`;
+    }
   }
 
   console.log(`Tracing references from ${skillPath}...`);
@@ -95,12 +116,21 @@ async function main() {
 
   console.log(`\nPacking ${result.files.size} files...`);
 
-  await pack({
+  const packOptions = {
     files: result.files,
     skillPath,
     outputPath,
     verbose,
-  });
+    categories: result.categories,
+  };
+
+  if (format === "flat") {
+    await packFlat(packOptions);
+  } else if (format === "preserve") {
+    await packPreserve(packOptions);
+  } else {
+    await pack(packOptions);
+  }
 
   console.log(`\nDone! Created ${outputPath}`);
 }
