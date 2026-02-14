@@ -52,13 +52,13 @@ async function main() {
       outputPath = args[++i];
     } else if (arg === "-f" || arg === "--format") {
       const val = args[++i];
-      if (val !== "skill" && val !== "flat" && val !== "preserve") {
+      if (val !== "skill" && val !== "flat" && val !== "preserve" && val !== "dir") {
         console.error(
           `Error: Invalid format "${val}". Use "skill", "flat", or "preserve".`
         );
         process.exit(1);
       }
-      format = val;
+      format = val === "dir" ? "preserve" : val;
     } else if (arg === "-l" || arg === "--list") {
       listOnly = true;
     } else if (arg === "-v" || arg === "--verbose") {
