@@ -25,7 +25,7 @@ const STANDARD_FIELDS = new Set([
  * Validate that SKILL.md frontmatter contains only standard fields.
  * Throws if non-standard keys are found.
  */
-function validateFrontmatter(content: string): void {
+export function validateFrontmatter(content: string): void {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return;
 

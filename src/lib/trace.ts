@@ -143,7 +143,7 @@ export function traceReferences(
  * Categorize traced files into scripts/references/assets.
  * Priority: executable → scripts, binary → assets, text → references.
  */
-function categorizeFiles(
+export function categorizeFiles(
   files: Set<string>,
   skillPath: string
 ): Map<string, Category> {
