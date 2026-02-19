@@ -1,6 +1,6 @@
 {
   "name": "@b9g/skillpack",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Build Agent Skills from your existing docs",
   "repository": {
     "type": "git",
