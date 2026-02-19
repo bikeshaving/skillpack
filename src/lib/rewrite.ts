@@ -33,17 +33,5 @@ export function rewriteSkillContent(
     }
   );
 
-  // Rewrite code block file= annotations: ```lang file=path
-  content = content.replace(
-    /^(```\S*)\s+file=(\S+)/gm,
-    (_match, lang, filePath) => {
-      const newPath = lookup(filePath);
-      if (newPath) {
-        return `${lang} file=${newPath}`;
-      }
-      return `${lang} file=${filePath}`;
-    }
-  );
-
   return content;
 }

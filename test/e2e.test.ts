@@ -169,12 +169,6 @@ describe("e2e", () => {
       expect(content).not.toContain("img/logo.png");
     });
 
-    test("rewrites code block file= annotations in SKILL.md", () => {
-      const content = fs.readFileSync(path.join(out, "SKILL.md"), "utf-8");
-      expect(content).toContain("file=references/utils.ts");
-      expect(content).not.toContain("file=src/utils.ts");
-    });
-
     test("preserves frontmatter", () => {
       const content = fs.readFileSync(path.join(out, "SKILL.md"), "utf-8");
       expect(content).toContain("name: test-skill");

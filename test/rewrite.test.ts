@@ -44,47 +44,20 @@ describe("rewriteSkillContent", () => {
     expect(result).toBe("See [other](unknown/file.md).");
   });
 
-  test("rewrites code block file= annotations", () => {
-    const pathMap = new Map([["src/types.ts", "references/types.ts"]]);
-    const input = "```ts file=src/types.ts\nexport type Foo = string;\n```";
-    const result = rewriteSkillContent(input, pathMap);
-    expect(result).toBe("```ts file=references/types.ts\nexport type Foo = string;\n```");
-  });
-
-  test("rewrites code block file= with ./ prefix", () => {
-    const pathMap = new Map([["src/types.ts", "references/types.ts"]]);
-    const input = "```ts file=./src/types.ts\nexport type Foo = string;\n```";
-    const result = rewriteSkillContent(input, pathMap);
-    expect(result).toBe("```ts file=references/types.ts\nexport type Foo = string;\n```");
-  });
-
-  test("leaves unmatched code block file= unchanged", () => {
-    const pathMap = new Map([["src/types.ts", "references/types.ts"]]);
-    const input = "```ts file=other/file.ts\ncode\n```";
-    const result = rewriteSkillContent(input, pathMap);
-    expect(result).toBe("```ts file=other/file.ts\ncode\n```");
-  });
-
   test("handles multiple rewrites in one document", () => {
     const pathMap = new Map([
       ["docs/api.md", "references/api.md"],
       ["src/main.ts", "references/main.ts"],
-      ["scripts/build.sh", "scripts/build.sh"],
     ]);
     const input = [
       "# My Skill",
       "",
       "See [API docs](docs/api.md) and [source](src/main.ts).",
-      "",
-      "```bash file=scripts/build.sh",
-      "#!/bin/bash",
-      "```",
     ].join("\n");
 
     const result = rewriteSkillContent(input, pathMap);
 
     expect(result).toContain("[API docs](references/api.md)");
     expect(result).toContain("[source](references/main.ts)");
-    expect(result).toContain("file=scripts/build.sh");
   });
 });

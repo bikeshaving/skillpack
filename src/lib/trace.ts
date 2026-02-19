@@ -13,7 +13,7 @@ export interface TraceResult {
 
 /**
  * Extract file references from markdown content.
- * Handles: markdown links and code block file= annotations.
+ * Handles: markdown links.
  */
 function extractReferences(content: string, basePath: string): string[] {
   const refs: string[] = [];
@@ -32,15 +32,6 @@ function extractReferences(content: string, basePath: string): string[] {
           !link.href.startsWith("#")
         ) {
           refs.push(link.href.split("#")[0]); // Remove anchor
-        }
-      }
-
-      if (token.type === "code") {
-        const code = token as Tokens.Code;
-        // Check for file= in lang string: ```ts file=src/foo.ts
-        const fileMatch = code.lang?.match(/file=([^\s]+)/);
-        if (fileMatch) {
-          refs.push(fileMatch[1]);
         }
       }
 

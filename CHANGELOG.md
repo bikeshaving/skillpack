@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Remove code block `file=` annotation tracing and rewriting (terrible AI-driven feature that duplicated what markdown links already do)
+- Fix incorrect README documentation
+
 ## 0.1.3
 
 - Add `--format flat` output: files categorized into `scripts/`, `references/`, `assets/` with automatic detection (executable bit, binary, text)
