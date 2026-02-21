@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Add `--format dist` output: produces both a `.skill` archive and flat directory, named from SKILL.md frontmatter `name` field
+- Cleans stale flat directory on re-run
+
 ## 0.1.4
 
 - Remove code block `file=` annotation tracing and rewriting (terrible AI-driven feature that duplicated what markdown links already do)

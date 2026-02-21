@@ -13,22 +13,25 @@ Usage:
   skillpack <SKILL.md> [options]
 
 Options:
-  -o, --output <path>   Output path (default: <name>.skill)
-  -f, --format <type>   Output format: skill (zip, default), flat, preserve, or dist
+  -o, --output <path>   Output directory (default: current directory)
+  -f, --format <type>   Output format: bundle (default), zip, flat, or preserve
   -l, --list            List files that would be included (dry run)
   -v, --verbose         Verbose output
   -h, --help            Show this help
 
+By default, outputs both <name>.skill and <name>/ (flat layout) to the
+output directory, with name inferred from SKILL.md frontmatter.
+
 Formats:
-  skill      .skill zip archive (default)
-  flat       Flat layout with scripts/ references/ assets/ subdirs
+  bundle     .skill archive + flat directory (default)
+  zip        .skill zip archive only
+  flat       Flat directory only (scripts/ references/ assets/ subdirs)
   preserve   Directory with original paths preserved
-  dist       Both .skill archive and flat directory (name from frontmatter)
 
 Examples:
   skillpack ./SKILL.md
-  skillpack ./SKILL.md -o dist/my-framework.skill
-  skillpack ./SKILL.md --format flat -o dist/my-skill/
+  skillpack ./SKILL.md -o skills/
+  skillpack ./SKILL.md --format zip -o my-framework.skill
   skillpack ./SKILL.md --list
 `);
 }
@@ -43,7 +46,7 @@ async function main() {
 
   let skillPath: string | undefined;
   let outputPath: string | undefined;
-  let format: "skill" | "flat" | "preserve" | "dist" = "skill";
+  let format: "bundle" | "zip" | "flat" | "preserve" = "bundle";
   let listOnly = false;
   let verbose = false;
 
@@ -53,13 +56,13 @@ async function main() {
       outputPath = args[++i];
     } else if (arg === "-f" || arg === "--format") {
       const val = args[++i];
-      if (val !== "skill" && val !== "flat" && val !== "preserve" && val !== "dist" && val !== "dir") {
+      if (val !== "bundle" && val !== "zip" && val !== "flat" && val !== "preserve" && val !== "dir") {
         console.error(
-          `Error: Invalid format "${val}". Use "skill", "flat", "preserve", or "dist".`
+          `Error: Invalid format "${val}". Use "bundle", "zip", "flat", or "preserve".`
         );
         process.exit(1);
       }
-      format = val === "dir" ? "preserve" : val;
+      format = val === "dir" ? "preserve" : val as "bundle" | "zip" | "flat" | "preserve";
     } else if (arg === "-l" || arg === "--list") {
       listOnly = true;
     } else if (arg === "-v" || arg === "--verbose") {
@@ -82,12 +85,12 @@ async function main() {
 
   // Derive output path from skill location if not specified
   if (!outputPath) {
-    if (format === "dist") {
+    if (format === "bundle") {
       outputPath = ".";
     } else {
       const dir = path.dirname(path.resolve(skillPath));
       const name = path.basename(dir) || "skill";
-      if (format === "skill") {
+      if (format === "zip") {
         outputPath = `${name}.skill`;
       } else {
         outputPath = `${name}/`;
@@ -129,7 +132,7 @@ async function main() {
     categories: result.categories,
   };
 
-  if (format === "dist") {
+  if (format === "bundle") {
     await packDist(packOptions);
   } else if (format === "flat") {
     await packFlat(packOptions);
