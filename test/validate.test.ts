@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateFrontmatter } from "../src/lib/pack.js";
+import { validateFrontmatter, extractName } from "../src/lib/pack.js";
 
 describe("validateFrontmatter", () => {
   test("accepts content with no frontmatter", () => {
@@ -55,5 +55,21 @@ describe("validateFrontmatter", () => {
   test("accepts empty frontmatter", () => {
     const content = "---\n---\n# Content";
     expect(() => validateFrontmatter(content)).not.toThrow();
+  });
+});
+
+describe("extractName", () => {
+  test("extracts name from frontmatter", () => {
+    const content = "---\nname: my-skill\ndescription: test\n---\n# Content";
+    expect(extractName(content)).toBe("my-skill");
+  });
+
+  test("throws if no frontmatter", () => {
+    expect(() => extractName("# No frontmatter")).toThrow("missing frontmatter");
+  });
+
+  test("throws if name field is missing", () => {
+    const content = "---\ndescription: test\n---\n# Content";
+    expect(() => extractName(content)).toThrow("missing required 'name' field");
   });
 });

@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { traceReferences } from "../src/lib/trace.js";
-import { pack, packFlat, packPreserve } from "../src/lib/pack.js";
+import { pack, packFlat, packPreserve, packDist } from "../src/lib/pack.js";
 
 const FIXTURE = path.join(import.meta.dir, "fixture");
 const SKILL_PATH = path.join(FIXTURE, "SKILL.md");
@@ -198,6 +198,51 @@ describe("e2e", () => {
           categories: result.categories,
         })
       ).rejects.toThrow("non-standard frontmatter fields: references");
+    });
+  });
+
+  describe("packDist", () => {
+    let out: string;
+
+    beforeAll(async () => {
+      const result = traceReferences(SKILL_PATH);
+      out = path.join(tmpDir, "dist-out");
+
+      await packDist({
+        files: result.files,
+        skillPath: SKILL_PATH,
+        outputPath: out,
+        categories: result.categories,
+      });
+    });
+
+    test("creates .skill archive named from frontmatter", () => {
+      expect(fs.existsSync(path.join(out, "test-skill.skill"))).toBe(true);
+      expect(fs.statSync(path.join(out, "test-skill.skill")).size).toBeGreaterThan(0);
+    });
+
+    test("creates flat directory named from frontmatter", () => {
+      expect(fs.existsSync(path.join(out, "test-skill"))).toBe(true);
+      expect(fs.existsSync(path.join(out, "test-skill/SKILL.md"))).toBe(true);
+      expect(fs.existsSync(path.join(out, "test-skill/references/api.md"))).toBe(true);
+      expect(fs.existsSync(path.join(out, "test-skill/scripts/build.sh"))).toBe(true);
+      expect(fs.existsSync(path.join(out, "test-skill/assets/logo.png"))).toBe(true);
+    });
+
+    test("cleans stale flat directory on re-run", async () => {
+      // Add a stale file
+      fs.writeFileSync(path.join(out, "test-skill/stale.txt"), "stale");
+
+      const result = traceReferences(SKILL_PATH);
+      await packDist({
+        files: result.files,
+        skillPath: SKILL_PATH,
+        outputPath: out,
+        categories: result.categories,
+      });
+
+      expect(fs.existsSync(path.join(out, "test-skill/stale.txt"))).toBe(false);
+      expect(fs.existsSync(path.join(out, "test-skill/SKILL.md"))).toBe(true);
     });
   });
 

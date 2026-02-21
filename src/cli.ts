@@ -3,7 +3,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { traceReferences } from "./lib/trace.js";
-import { pack, packFlat, packPreserve } from "./lib/pack.js";
+import { pack, packFlat, packPreserve, packDist } from "./lib/pack.js";
 
 function usage() {
   console.log(`
@@ -14,7 +14,7 @@ Usage:
 
 Options:
   -o, --output <path>   Output path (default: <name>.skill)
-  -f, --format <type>   Output format: skill (zip, default), flat, or preserve
+  -f, --format <type>   Output format: skill (zip, default), flat, preserve, or dist
   -l, --list            List files that would be included (dry run)
   -v, --verbose         Verbose output
   -h, --help            Show this help
@@ -23,6 +23,7 @@ Formats:
   skill      .skill zip archive (default)
   flat       Flat layout with scripts/ references/ assets/ subdirs
   preserve   Directory with original paths preserved
+  dist       Both .skill archive and flat directory (name from frontmatter)
 
 Examples:
   skillpack ./SKILL.md
@@ -42,7 +43,7 @@ async function main() {
 
   let skillPath: string | undefined;
   let outputPath: string | undefined;
-  let format: "skill" | "flat" | "preserve" = "skill";
+  let format: "skill" | "flat" | "preserve" | "dist" = "skill";
   let listOnly = false;
   let verbose = false;
 
@@ -52,9 +53,9 @@ async function main() {
       outputPath = args[++i];
     } else if (arg === "-f" || arg === "--format") {
       const val = args[++i];
-      if (val !== "skill" && val !== "flat" && val !== "preserve" && val !== "dir") {
+      if (val !== "skill" && val !== "flat" && val !== "preserve" && val !== "dist" && val !== "dir") {
         console.error(
-          `Error: Invalid format "${val}". Use "skill", "flat", or "preserve".`
+          `Error: Invalid format "${val}". Use "skill", "flat", "preserve", or "dist".`
         );
         process.exit(1);
       }
@@ -81,12 +82,16 @@ async function main() {
 
   // Derive output path from skill location if not specified
   if (!outputPath) {
-    const dir = path.dirname(path.resolve(skillPath));
-    const name = path.basename(dir) || "skill";
-    if (format === "skill") {
-      outputPath = `${name}.skill`;
+    if (format === "dist") {
+      outputPath = ".";
     } else {
-      outputPath = `${name}/`;
+      const dir = path.dirname(path.resolve(skillPath));
+      const name = path.basename(dir) || "skill";
+      if (format === "skill") {
+        outputPath = `${name}.skill`;
+      } else {
+        outputPath = `${name}/`;
+      }
     }
   }
 
@@ -124,7 +129,9 @@ async function main() {
     categories: result.categories,
   };
 
-  if (format === "flat") {
+  if (format === "dist") {
+    await packDist(packOptions);
+  } else if (format === "flat") {
     await packFlat(packOptions);
   } else if (format === "preserve") {
     await packPreserve(packOptions);

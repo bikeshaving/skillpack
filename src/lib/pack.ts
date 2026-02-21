@@ -49,6 +49,24 @@ export function validateFrontmatter(content: string): void {
 }
 
 /**
+ * Extract the name field from SKILL.md frontmatter.
+ * Throws if frontmatter or name field is missing.
+ */
+export function extractName(content: string): string {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) {
+    throw new Error("SKILL.md is missing frontmatter");
+  }
+
+  for (const line of match[1].split("\n")) {
+    const m = line.match(/^name:\s*(.+)/);
+    if (m) return m[1].trim();
+  }
+
+  throw new Error("SKILL.md frontmatter is missing required 'name' field");
+}
+
+/**
  * Pack files into a .skill archive (zip with .skill extension)
  */
 export async function pack(options: PackOptions): Promise<void> {
@@ -210,4 +228,30 @@ export async function packFlat(options: PackOptions): Promise<void> {
   if (verbose) {
     console.log(`\nCopied ${count} files to ${outputPath}`);
   }
+}
+
+/**
+ * Pack files into both a .skill archive and a flat directory.
+ * Output dir gets <name>.skill and <name>/ based on frontmatter name.
+ */
+export async function packDist(options: PackOptions): Promise<void> {
+  const { files, skillPath, outputPath, verbose, categories } = options;
+
+  const absoluteSkillPath = path.resolve(skillPath);
+  const content = fs.readFileSync(absoluteSkillPath, "utf-8");
+  const name = extractName(content);
+
+  const flatDir = path.join(outputPath, name);
+
+  // Clean stale flat directory
+  if (fs.existsSync(flatDir)) {
+    fs.rmSync(flatDir, { recursive: true });
+  }
+
+  fs.mkdirSync(outputPath, { recursive: true });
+
+  const skillOutput = path.join(outputPath, `${name}.skill`);
+
+  await pack({ files, skillPath, outputPath: skillOutput, verbose });
+  await packFlat({ files, skillPath, outputPath: flatDir, verbose, categories });
 }
