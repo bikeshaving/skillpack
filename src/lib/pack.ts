@@ -67,13 +67,67 @@ export function extractName(content: string): string {
 }
 
 /**
- * Pack files into a .skill archive (zip with .skill extension)
+ * Build a path map from original relative paths to flat layout paths.
+ * Also checks for filename collisions.
  */
-export async function pack(options: PackOptions): Promise<void> {
-  const { files, skillPath, outputPath, verbose } = options;
-
+export function buildFlatPathMap(
+  files: Set<string>,
+  skillPath: string,
+  categories: Map<string, Category>,
+): Map<string, string> {
   const rootDir = path.dirname(path.resolve(skillPath));
   const absoluteSkillPath = path.resolve(skillPath);
+
+  const pathMap = new Map<string, string>();
+  const destinations = new Map<string, string[]>();
+
+  for (const file of files) {
+    if (file === absoluteSkillPath) continue;
+
+    const relPath = path.relative(rootDir, file);
+    const category = categories.get(file);
+    if (!category) continue;
+
+    const basename = path.basename(file);
+    const dest = `${category}/${basename}`;
+
+    const existing = destinations.get(dest);
+    if (existing) {
+      existing.push(relPath);
+    } else {
+      destinations.set(dest, [relPath]);
+    }
+
+    pathMap.set(relPath, dest);
+  }
+
+  const collisions: string[] = [];
+  for (const [dest, sources] of destinations) {
+    if (sources.length > 1) {
+      collisions.push(`  ${dest} ← ${sources.join(", ")}`);
+    }
+  }
+  if (collisions.length > 0) {
+    throw new Error(
+      `Flat format collision — multiple files map to the same destination:\n${collisions.join("\n")}`
+    );
+  }
+
+  return pathMap;
+}
+
+/**
+ * Pack files into a .skill archive (zip with flat layout)
+ */
+export async function pack(options: PackOptions): Promise<void> {
+  const { files, skillPath, outputPath, verbose, categories } = options;
+
+  if (!categories) {
+    throw new Error("categories required for zip format");
+  }
+
+  const absoluteSkillPath = path.resolve(skillPath);
+  const pathMap = buildFlatPathMap(files, skillPath, categories);
   const output = fs.createWriteStream(outputPath);
   const archive = archiver("zip", { zlib: { level: 9 } });
 
@@ -88,19 +142,28 @@ export async function pack(options: PackOptions): Promise<void> {
     archive.on("error", reject);
     archive.pipe(output);
 
-    for (const file of files) {
-      const relativePath = path.relative(rootDir, file);
-      if (verbose) {
-        console.log(`  packing: ${relativePath}`);
-      }
+    // Write SKILL.md with rewritten paths
+    const skillContent = fs.readFileSync(absoluteSkillPath, "utf-8");
+    validateFrontmatter(skillContent);
+    const rewritten = rewriteSkillContent(skillContent, pathMap);
+    archive.append(rewritten, { name: "SKILL.md" });
+    if (verbose) {
+      console.log("  packing: SKILL.md");
+    }
 
-      if (path.resolve(file) === absoluteSkillPath) {
-        const content = fs.readFileSync(file, "utf-8");
-        validateFrontmatter(content);
-        archive.append(content, { name: relativePath });
-      } else {
-        archive.file(file, { name: relativePath });
+    // Pack files with flat paths
+    const rootDir = path.dirname(path.resolve(skillPath));
+    for (const file of files) {
+      if (path.resolve(file) === absoluteSkillPath) continue;
+
+      const relPath = path.relative(rootDir, file);
+      const dest = pathMap.get(relPath);
+      if (!dest) continue;
+
+      if (verbose) {
+        console.log(`  packing: ${relPath} → ${dest}`);
       }
+      archive.file(file, { name: dest });
     }
 
     archive.finalize();
@@ -156,43 +219,7 @@ export async function packFlat(options: PackOptions): Promise<void> {
 
   const rootDir = path.dirname(path.resolve(skillPath));
   const absoluteSkillPath = path.resolve(skillPath);
-
-  // Build path map: original relative path → flat path (e.g., "docs/api.md" → "references/api.md")
-  const pathMap = new Map<string, string>();
-  const destinations = new Map<string, string[]>(); // dest → [source paths] for collision detection
-
-  for (const file of files) {
-    if (file === absoluteSkillPath) continue;
-
-    const relPath = path.relative(rootDir, file);
-    const category = categories.get(file);
-    if (!category) continue;
-
-    const basename = path.basename(file);
-    const dest = `${category}/${basename}`;
-
-    const existing = destinations.get(dest);
-    if (existing) {
-      existing.push(relPath);
-    } else {
-      destinations.set(dest, [relPath]);
-    }
-
-    pathMap.set(relPath, dest);
-  }
-
-  // Check for collisions
-  const collisions: string[] = [];
-  for (const [dest, sources] of destinations) {
-    if (sources.length > 1) {
-      collisions.push(`  ${dest} ← ${sources.join(", ")}`);
-    }
-  }
-  if (collisions.length > 0) {
-    throw new Error(
-      `Flat format collision — multiple files map to the same destination:\n${collisions.join("\n")}`
-    );
-  }
+  const pathMap = buildFlatPathMap(files, skillPath, categories);
 
   // Create output directory
   fs.mkdirSync(outputPath, { recursive: true });
@@ -252,6 +279,6 @@ export async function packDist(options: PackOptions): Promise<void> {
 
   const skillOutput = path.join(outputPath, `${name}.skill`);
 
-  await pack({ files, skillPath, outputPath: skillOutput, verbose });
+  await pack({ files, skillPath, outputPath: skillOutput, verbose, categories });
   await packFlat({ files, skillPath, outputPath: flatDir, verbose, categories });
 }

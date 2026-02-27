@@ -1,8 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+- Zip archive now uses flat layout (`references/`, `scripts/`, `assets/`) matching the flat directory output (fixes #1)
+- Default format is now `bundle` (produces both `.skill` archive and flat directory)
+- Rename `--format skill` to `--format zip`
+
 ## 0.1.5
 
-- Add `--format dist` output: produces both a `.skill` archive and flat directory, named from SKILL.md frontmatter `name` field
+- Add `--format bundle` output: produces both a `.skill` archive and flat directory, named from SKILL.md frontmatter `name` field
 - Cleans stale flat directory on re-run
 
 ## 0.1.4
